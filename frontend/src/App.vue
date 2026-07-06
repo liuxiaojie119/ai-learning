@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
@@ -74,6 +74,11 @@ function autoResize() {
 // 输入内容变化时自动调整高度
 watch(userInput, () => {
   nextTick(autoResize)
+})
+
+// 页面进入时弹出欢迎提示
+onMounted(() => {
+  alert('欢迎来到 AI 流式对话 Demo')
 })
 
 /**

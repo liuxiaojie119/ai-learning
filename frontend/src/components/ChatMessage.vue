@@ -46,6 +46,8 @@ interface Props {
 
 const props = defineProps<Props>()
 
+
+
 const avatarChar = computed(() => (props.message.role === 'user' ? '我' : 'AI'))
 const displayName = computed(() => (props.message.role === 'user' ? '我' : 'AI 助手'))
 const timeText = computed(() => {
