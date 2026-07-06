@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
@@ -77,9 +77,9 @@ watch(userInput, () => {
 })
 
 // 页面进入时弹出欢迎提示
-onMounted(() => {
-  alert('欢迎来到 AI 流式对话 Demo')
-})
+// onMounted(() => {
+//   alert('欢迎来到 AI 流式对话 Demo')
+// })
 
 /**
  * 滚动消息列表到底部
