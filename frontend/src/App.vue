@@ -5,7 +5,7 @@ import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import ChatMessage from './components/ChatMessage.vue'
 import SessionList from './components/SessionList.vue'
-import { useChatStore } from './composables/useChatStore'
+import { useChatStore, type ChatMessage as StoreChatMessage } from './composables/useChatStore'
 
 interface VirtualScrollerInstance extends ComponentPublicInstance {
   scrollToItem(index: number): void
@@ -66,7 +66,7 @@ const messages = computed(() => store.currentSession.value?.messages ?? [])
 
 const displayMessages = computed<ChatMessageItem[]>(() =>
   messages.value
-    .filter((m) => m.role !== 'system')
+    .filter((m): m is StoreChatMessage & { role: 'user' | 'assistant' } => m.role !== 'system')
     .map((m) => ({
       id: m.id,
       role: m.role,
