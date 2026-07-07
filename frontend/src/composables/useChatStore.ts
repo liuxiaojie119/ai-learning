@@ -1,11 +1,41 @@
 import { ref, computed, watch } from 'vue'
 
 export type MessageRole = 'system' | 'user' | 'assistant'
+export type MessageType = 'text' | 'event-list'
+
+export interface EventItem {
+  date: string
+  type: string
+  company: string
+  project: string
+  sales: string
+  actualDate: string
+  expectedDate: string | null
+  lastWeekAmount: number
+  opportunityAmount: number
+}
+
+export interface Pagination {
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface EventListPayload {
+  title: string
+  subtitle: string
+  tabs: string[]
+  total: number
+  data: EventItem[]
+  pagination: Pagination
+}
 
 export interface ChatMessage {
   id: string
   role: MessageRole
+  type: MessageType
   content: string
+  payload: EventListPayload | null
   timestamp: number
 }
 
@@ -46,7 +76,11 @@ function saveSessions(): void {
 }
 
 const sessions = ref<ChatSession[]>(loadSessions())
-const currentSessionId = ref<string>(sessions.value[0]?.id ?? createSession().id)
+const currentSessionId = ref<string>(sessions.value[0]?.id ?? '')
+
+if (!currentSessionId.value) {
+  createSession()
+}
 
 const currentSession = computed(() =>
   sessions.value.find((s) => s.id === currentSessionId.value) ?? sessions.value[0]
@@ -65,13 +99,21 @@ function deleteSession(id: string): void {
   }
 }
 
-function addMessage(sessionId: string, role: MessageRole, content: string): void {
+function addMessage(
+  sessionId: string,
+  role: MessageRole,
+  content: string,
+  type: MessageType = 'text',
+  payload: EventListPayload | null = null
+): void {
   const session = sessions.value.find((s) => s.id === sessionId)
   if (!session) return
   session.messages.push({
     id: crypto.randomUUID(),
     role,
+    type,
     content,
+    payload,
     timestamp: Date.now(),
   })
   session.updatedAt = Date.now()

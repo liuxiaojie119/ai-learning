@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
 import ChatMessage from './components/ChatMessage.vue'
+import SessionList from './components/SessionList.vue'
+import { useChatStore } from './composables/useChatStore'
 
 interface VirtualScrollerInstance extends ComponentPublicInstance {
   scrollToItem(index: number): void
@@ -58,8 +60,23 @@ const errorMsg = ref('')
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 // 消息列表虚拟滚动组件引用
 const messagesRef = ref<VirtualScrollerInstance | null>(null)
-// 当前会话的消息历史
-const messages = ref<ChatMessageItem[]>([])
+
+const store = useChatStore()
+const messages = computed(() => store.currentSession.value?.messages ?? [])
+
+const displayMessages = computed<ChatMessageItem[]>(() =>
+  messages.value
+    .filter((m) => m.role !== 'system')
+    .map((m) => ({
+      id: m.id,
+      role: m.role,
+      type: m.type,
+      content: m.content,
+      payload: m.payload,
+      timestamp: m.timestamp,
+      isTyping: false,
+    }))
+)
 
 /**
  * 根据内容自动调整 textarea 高度
@@ -111,6 +128,8 @@ async function sendMessage() {
   const message = userInput.value.trim()
   if (!message || isTyping.value) return
 
+  const sessionId = store.currentSessionId.value
+
   // 如果存在未清理的旧控制器（异常场景），先中止并清理
   if (abortController.value) {
     abortController.value.abort()
@@ -119,31 +138,9 @@ async function sendMessage() {
 
   abortController.value = new AbortController()
 
-  // 追加用户消息
-  messages.value.push({
-    id: crypto.randomUUID(),
-    role: 'user',
-    type: 'text',
-    content: message,
-    payload: null,
-    timestamp: Date.now(),
-    isTyping: false,
-  })
-
-  // 追加 AI 占位消息
-  const assistantMessage: ChatMessageItem = {
-    id: crypto.randomUUID(),
-    role: 'assistant',
-    type: 'text',
-    content: '',
-    payload: null,
-    timestamp: Date.now(),
-    isTyping: true,
-  }
-  messages.value.push(assistantMessage)
-
-  // 通过响应式数组元素更新，确保 Vue 能追踪变化
-  const lastMessage = messages.value[messages.value.length - 1]
+  // 追加用户消息和 AI 占位消息
+  store.addMessage(sessionId, 'user', message)
+  store.addMessage(sessionId, 'assistant', '')
 
   // 清空输入
   userInput.value = ''
@@ -156,11 +153,18 @@ async function sendMessage() {
     scrollToBottom()
   })
 
+  const history = [
+    { role: 'system' as const, content: '你是专业前端 TS 工程师，回答简洁规范' },
+    ...messages.value
+      .filter((m) => m.role !== 'system')
+      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+  ]
+
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ messages: history }),
       signal: abortController.value?.signal,
     })
 
@@ -197,16 +201,18 @@ async function sendMessage() {
           try {
             const data = JSON.parse(dataStr)
             if (data.type === 'event-list' && data.payload) {
-              lastMessage.type = 'event-list'
-              lastMessage.payload = data.payload as EventListPayload
-              lastMessage.isTyping = false
+              const session = store.currentSession.value
+              const last = session?.messages.at(-1)
+              if (last && last.role === 'assistant') {
+                last.type = 'event-list'
+                last.payload = data.payload as EventListPayload
+              }
             }
             if (data.chunk) {
               // 追加每个流式文本片段
-              lastMessage.content += data.chunk
+              store.updateLastMessage(sessionId, data.chunk)
             }
             if (data.done) {
-              lastMessage.isTyping = false
               isTyping.value = false
             }
             scrollToBottom()
@@ -223,12 +229,15 @@ async function sendMessage() {
       try {
         const data = JSON.parse(dataStr)
         if (data.type === 'event-list' && data.payload) {
-          lastMessage.type = 'event-list'
-          lastMessage.payload = data.payload as EventListPayload
-          lastMessage.isTyping = false
+          const session = store.currentSession.value
+          const last = session?.messages.at(-1)
+          if (last && last.role === 'assistant') {
+            last.type = 'event-list'
+            last.payload = data.payload as EventListPayload
+          }
         }
         if (data.chunk) {
-          lastMessage.content += data.chunk
+          store.updateLastMessage(sessionId, data.chunk)
         }
       } catch (e) {
         console.error('解析缓冲区 SSE 数据失败：', dataStr, e)
@@ -240,69 +249,82 @@ async function sendMessage() {
     if (error.name === 'AbortError' || error.message?.includes('aborted')) {
       errorMsg.value = ''
     } else {
-      // 真实错误：移除占位 AI 消息，避免留下空气泡
-      messages.value.pop()
+      // 真实错误：移除空的 AI 占位消息
+      const session = store.currentSession.value
+      const last = session?.messages.at(-1)
+      if (session && last && last.role === 'assistant' && last.content === '' && last.type === 'text') {
+        session.messages.pop()
+      }
       errorMsg.value = `调用失败：${error.message}`
     }
   } finally {
     isTyping.value = false
-    lastMessage.isTyping = false
     abortController.value = null
   }
 }
 </script>
 
 <template>
-  <div class="chat-container">
-    <h1 class="title">🤖 AI 流式对话 Demo</h1>
+  <div class="app-layout">
+    <SessionList />
+    <div class="chat-container">
+      <h1 class="title">🤖 AI 流式对话 Demo</h1>
 
-    <DynamicScroller
-      ref="messagesRef"
-      :items="messages"
-      :min-item-size="54"
-      class="messages-area"
-    >
-      <template #default="{ item, index, active }">
-        <DynamicScrollerItem
-          :item="item"
-          :active="active"
-          :size-dependencies="[
-            item.content,
-            item.type,
-            item.payload,
-          ]"
-          :data-index="index"
-        >
-          <ChatMessage :message="item" />
-        </DynamicScrollerItem>
-      </template>
-    </DynamicScroller>
-
-    <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
-
-    <div class="input-area">
-      <textarea
-        ref="inputRef"
-        v-model="userInput"
-        class="chat-input"
-        rows="1"
-        placeholder="请输入你的问题..."
-        @input="autoResize"
-        @keydown.enter.prevent="sendMessage"
-      />
-      <button
-        class="send-btn"
-        :class="{ 'stop-btn': isTyping }"
-        :disabled="!isTyping && !userInput.trim()"
-        @click="isTyping ? stopGenerating() : sendMessage()"
+      <DynamicScroller
+        ref="messagesRef"
+        :items="displayMessages"
+        :min-item-size="54"
+        class="messages-area"
       >
-        {{ isTyping ? '停止' : '发送' }}
-      </button>
+        <template #default="{ item, index, active }">
+          <DynamicScrollerItem
+            :item="item"
+            :active="active"
+            :size-dependencies="[
+              item.content,
+              item.type,
+              item.payload,
+            ]"
+            :data-index="index"
+          >
+            <ChatMessage :message="item" />
+          </DynamicScrollerItem>
+        </template>
+      </DynamicScroller>
+
+      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+
+      <div class="input-area">
+        <textarea
+          ref="inputRef"
+          v-model="userInput"
+          class="chat-input"
+          rows="1"
+          placeholder="请输入你的问题..."
+          @input="autoResize"
+          @keydown.enter.prevent="sendMessage"
+        />
+        <button
+          class="send-btn"
+          :class="{ 'stop-btn': isTyping }"
+          :disabled="!isTyping && !userInput.trim()"
+          @click="isTyping ? stopGenerating() : sendMessage()"
+        >
+          {{ isTyping ? '停止' : '发送' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
 .chat-container {
   display: flex;
   flex-direction: column;
