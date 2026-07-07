@@ -29,10 +29,10 @@ const server = http.createServer((req, res) => {
 
       req.on("end", async () => {
         try {
-          const { message } = JSON.parse(body) as { message?: string };
-          if (!message || typeof message !== "string") {
+          const { messages } = JSON.parse(body) as { messages?: { role: string; content: string }[] };
+          if (!Array.isArray(messages) || messages.length === 0) {
             res.statusCode = 400;
-            res.end(JSON.stringify({ error: "message 字段不能为空" }));
+            res.end(JSON.stringify({ error: "messages 字段必须是非空数组" }));
             return;
           }
 
@@ -44,9 +44,10 @@ const server = http.createServer((req, res) => {
           });
 
           // 经营事件类查询：使用 GLM Function Calling 返回结构化数据
-          if (/经营事件|签约|收入|回款|验收|预警/.test(message)) {
+          const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+          if (lastUserMessage && /经营事件|签约|收入|回款|验收|预警/.test(lastUserMessage.content)) {
             try {
-              const payload = await fetchEventsWithTool(message);
+              const payload = await fetchEventsWithTool(lastUserMessage.content);
               sendSSE(res, { type: "event-list", payload });
             } catch (err) {
               sendSSE(res, { error: (err as Error).message });
@@ -56,12 +57,13 @@ const server = http.createServer((req, res) => {
             return;
           }
 
-          const messages: ChatMessage[] = [
-            { role: "system", content: "你是专业前端TS工程师，回答简洁规范" },
-            { role: "user", content: message }
-          ];
+          const chatMessages: ChatMessage[] = messages
+            .filter((m): m is { role: "system" | "user" | "assistant"; content: string } =>
+              ["system", "user", "assistant"].includes(m.role) && typeof m.content === "string"
+            )
+            .map((m) => ({ role: m.role, content: m.content }));
 
-          await streamZhipuChat(messages, (chunk) => {
+          await streamZhipuChat(chatMessages, (chunk) => {
             sendSSE(res, { chunk });
           });
 
