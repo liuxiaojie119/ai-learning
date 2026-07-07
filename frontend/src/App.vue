@@ -153,10 +153,7 @@ async function sendMessage() {
     scrollToBottom()
   })
 
-  const history = [
-    { role: 'system' as const, content: '你是专业前端 TS 工程师，回答简洁规范' },
-    ...store.buildMessages(sessionId, 20),
-  ]
+  const history = store.buildMessages(sessionId, 20)
 
   try {
     const response = await fetch('/api/chat', {
