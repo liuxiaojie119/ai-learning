@@ -141,6 +141,18 @@ function setLastMessageTyping(sessionId: string, isTyping: boolean): void {
   }
 }
 
+function buildMessages(
+  sessionId: string,
+  maxMessages = 20
+): { role: 'user' | 'assistant'; content: string }[] {
+  const session = sessions.value.find((s) => s.id === sessionId)
+  if (!session) return []
+  return session.messages
+    .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'system')
+    .slice(-maxMessages)
+    .map((m) => ({ role: m.role, content: m.content }))
+}
+
 watch(sessions, saveSessions, { deep: true })
 
 export function useChatStore() {
@@ -154,5 +166,6 @@ export function useChatStore() {
     addMessage,
     updateLastMessage,
     setLastMessageTyping,
+    buildMessages,
   }
 }

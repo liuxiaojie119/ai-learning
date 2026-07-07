@@ -155,9 +155,7 @@ async function sendMessage() {
 
   const history = [
     { role: 'system' as const, content: '你是专业前端 TS 工程师，回答简洁规范' },
-    ...messages.value
-      .filter((m) => m.role !== 'system')
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    ...store.buildMessages(sessionId, 20),
   ]
 
   try {
