@@ -1,4 +1,5 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
+import { useAuthStore } from './useAuthStore'
 
 export type MessageRole = 'system' | 'user' | 'assistant'
 export type MessageType = 'text' | 'event-list'
@@ -47,89 +48,150 @@ export interface ChatSession {
   updatedAt: number
 }
 
-const STORAGE_KEY = 'ai-learning-chat-sessions'
-
-function createSession(): ChatSession {
-  const session: ChatSession = {
-    id: crypto.randomUUID(),
-    title: '新对话',
-    messages: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }
-  sessions.value.unshift(session)
-  currentSessionId.value = session.id
-  return session
-}
-
-function loadSessions(): ChatSession[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as ChatSession[]) : []
-  } catch {
-    return []
-  }
-}
-
-function saveSessions(): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.value))
-}
-
-const sessions = ref<ChatSession[]>(loadSessions())
-const currentSessionId = ref<string>(sessions.value[0]?.id ?? '')
-
-if (!currentSessionId.value) {
-  createSession()
-}
+const sessions = ref<ChatSession[]>([])
+const currentSessionId = ref<string>('')
+const isLoading = ref(false)
+const error = ref<string | null>(null)
 
 const currentSession = computed(() =>
-  sessions.value.find((s) => s.id === currentSessionId.value) ?? sessions.value[0]
+  sessions.value.find((s) => s.id === currentSessionId.value) ?? null
 )
 
-function switchSession(id: string): void {
+const authStore = useAuthStore()
+
+async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  return authStore.fetchWithAuth<T>(url, options)
+}
+
+async function loadSessions(): Promise<void> {
+  isLoading.value = true
+  error.value = null
+  try {
+    const data = await api<{ sessions: Array<Omit<ChatSession, 'messages'>> }>('/api/sessions')
+    sessions.value = data.sessions.map((s) => ({ ...s, messages: [] }))
+    if (sessions.value.length > 0 && !currentSessionId.value) {
+      currentSessionId.value = sessions.value[0].id
+      await loadMessages(currentSessionId.value)
+    }
+    if (sessions.value.length === 0) {
+      await createSession()
+    }
+  } catch (err) {
+    error.value = (err as Error).message
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function loadMessages(sessionId: string): Promise<void> {
+  const session = sessions.value.find((s) => s.id === sessionId)
+  if (!session) return
+  try {
+    const data = await api<{ messages: ChatMessage[] }>(`/api/sessions/${sessionId}/messages`)
+    session.messages = data.messages
+  } catch (err) {
+    error.value = (err as Error).message
+  }
+}
+
+async function createSession(): Promise<ChatSession> {
+  const session = await api<ChatSession>('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: '新对话' }),
+  })
+  const newSession: ChatSession = { ...session, messages: [] }
+  sessions.value.unshift(newSession)
+  currentSessionId.value = newSession.id
+  return newSession
+}
+
+async function switchSession(id: string): Promise<void> {
   if (sessions.value.some((s) => s.id === id)) {
     currentSessionId.value = id
+    await loadMessages(id)
   }
 }
 
-function deleteSession(id: string): void {
+async function deleteSession(id: string): Promise<void> {
+  await api(`/api/sessions/${id}`, { method: 'DELETE' })
   sessions.value = sessions.value.filter((s) => s.id !== id)
   if (currentSessionId.value === id) {
-    currentSessionId.value = sessions.value[0]?.id ?? createSession().id
+    currentSessionId.value = sessions.value[0]?.id ?? ''
+    if (!currentSessionId.value) {
+      await createSession()
+    } else {
+      await loadMessages(currentSessionId.value)
+    }
   }
 }
 
-function addMessage(
+async function addMessage(
   sessionId: string,
   role: MessageRole,
   content: string,
   type: MessageType = 'text',
   payload: EventListPayload | null = null
-): void {
+): Promise<void> {
   const session = sessions.value.find((s) => s.id === sessionId)
   if (!session) return
-  session.messages.push({
+
+  const tempMessage: ChatMessage = {
     id: crypto.randomUUID(),
     role,
     type,
     content,
     payload,
     timestamp: Date.now(),
-  })
+  }
+  session.messages.push(tempMessage)
   session.updatedAt = Date.now()
-  if (session.messages.filter((m) => m.role === 'user').length === 1 && role === 'user') {
+
+  // 用户的第一条消息作为会话标题
+  if (role === 'user' && session.messages.filter((m) => m.role === 'user').length === 1) {
     session.title = content.slice(0, 20) || '新对话'
+  }
+
+  // 用户消息需要持久化到后端；assistant 回复由 /api/chat 负责写入
+  if (role !== 'user') return
+
+  try {
+    const saved = await api<ChatMessage>(`/api/sessions/${sessionId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        role,
+        type,
+        content,
+        payload,
+        timestamp: tempMessage.timestamp,
+      }),
+    })
+    const idx = session.messages.findIndex((m) => m.id === tempMessage.id)
+    if (idx !== -1) {
+      session.messages[idx] = saved
+    }
+  } catch (err) {
+    error.value = (err as Error).message
   }
 }
 
-function updateLastMessage(sessionId: string, content: string): void {
+function updateLastMessage(
+  sessionId: string,
+  content: string,
+  type: MessageType = 'text',
+  payload: EventListPayload | null = null
+): void {
   const session = sessions.value.find((s) => s.id === sessionId)
   if (!session) return
   const last = session.messages.at(-1)
-  if (last) {
-    last.content += content
-    session.updatedAt = Date.now()
+  if (!last) return
+  last.content += content
+  if (type !== 'text') {
+    last.type = type
+    last.payload = payload
   }
+  session.updatedAt = Date.now()
 }
 
 function setLastMessageTyping(sessionId: string, isTyping: boolean): void {
@@ -141,31 +203,19 @@ function setLastMessageTyping(sessionId: string, isTyping: boolean): void {
   }
 }
 
-function buildMessages(
-  sessionId: string,
-  maxMessages = 20
-): { role: 'user' | 'assistant'; content: string }[] {
-  const session = sessions.value.find((s) => s.id === sessionId)
-  if (!session) return []
-  return session.messages
-    .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'system')
-    .slice(-maxMessages)
-    .map((m) => ({ role: m.role, content: m.content }))
-}
-
-watch(sessions, saveSessions, { deep: true })
-
 export function useChatStore() {
   return {
     sessions,
     currentSessionId,
     currentSession,
+    isLoading,
+    error,
+    loadSessions,
     createSession,
     switchSession,
     deleteSession,
     addMessage,
     updateLastMessage,
     setLastMessageTyping,
-    buildMessages,
   }
 }

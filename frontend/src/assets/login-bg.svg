@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0f7ff" />
+      <stop offset="50%" stop-color="#f8f5ff" />
+      <stop offset="100%" stop-color="#fff5f8" />
+    </linearGradient>
+
+    <linearGradient id="waveGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(64, 158, 255, 0.12)" />
+      <stop offset="100%" stop-color="rgba(64, 158, 255, 0.02)" />
+    </linearGradient>
+
+    <linearGradient id="waveGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="rgba(126, 92, 220, 0.10)" />
+      <stop offset="100%" stop-color="rgba(126, 92, 220, 0.02)" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bgGradient)" />
+
+  <circle cx="200" cy="180" r="280" fill="rgba(64, 158, 255, 0.08)" />
+  <circle cx="1700" cy="900" r="360" fill="rgba(126, 92, 220, 0.08)" />
+  <circle cx="1500" cy="200" r="180" fill="rgba(255, 120, 150, 0.06)" />
+
+  <path
+    d="M0,600 C320,500 640,750 960,650 C1280,550 1600,800 1920,700 L1920,1080 L0,1080 Z"
+    fill="url(#waveGradient1)"
+  />
+  <path
+    d="M0,720 C360,620 720,850 1080,720 C1440,590 1680,820 1920,760 L1920,1080 L0,1080 Z"
+    fill="url(#waveGradient2)"
+  />
+
+  <g opacity="0.15">
+    <line x1="0" y1="0" x2="1920" y2="0" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="120" x2="1920" y2="120" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="240" x2="1920" y2="240" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="360" x2="1920" y2="360" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="480" x2="1920" y2="480" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="600" x2="1920" y2="600" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="720" x2="1920" y2="720" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="840" x2="1920" y2="840" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="960" x2="1920" y2="960" stroke="#409eff" stroke-width="1" />
+    <line x1="0" y1="1080" x2="1920" y2="1080" stroke="#409eff" stroke-width="1" />
+
+    <line x1="0" y1="0" x2="0" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="240" y1="0" x2="240" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="480" y1="0" x2="480" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="720" y1="0" x2="720" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="960" y1="0" x2="960" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="1200" y1="0" x2="1200" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="1440" y1="0" x2="1440" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="1680" y1="0" x2="1680" y2="1080" stroke="#409eff" stroke-width="1" />
+    <line x1="1920" y1="0" x2="1920" y2="1080" stroke="#409eff" stroke-width="1" />
+  </g>
+</svg>
