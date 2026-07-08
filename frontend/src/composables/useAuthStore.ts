@@ -40,7 +40,7 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     clearAuth()
-    throw new Error('登录已过期，请重新登录')
+    throw new Error('您暂无操作权限，请联系管理员开通')
   }
 
   if (!res.ok) {
@@ -67,7 +67,7 @@ async function stream(url: string, options: RequestInit = {}): Promise<Response>
 
   if (res.status === 401) {
     clearAuth()
-    throw new Error('登录已过期，请重新登录')
+    throw new Error('您暂无操作权限，请联系管理员开通')
   }
 
   return res
