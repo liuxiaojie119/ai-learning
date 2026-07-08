@@ -286,7 +286,20 @@ async function sendMessage() {
     <div class="chat-container">
       <header class="chat-header">
         <h1 class="title">🤖 AI 助手</h1>
-        <button class="logout-btn" @click="handleLogout">登出</button>
+        <a-dropdown trigger="click" placement="bottomRight">
+          <a-button class="user-menu-btn" aria-label="用户菜单">
+            <span aria-hidden="true">👤</span>
+            <span class="username-text">{{ authStore.user.value?.username ?? '用户' }}</span>
+            <span aria-hidden="true">▼</span>
+          </a-button>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="logout" @click="handleLogout">
+                登出
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
       </header>
 
       <DynamicScroller
@@ -375,22 +388,6 @@ async function sendMessage() {
   margin: 0;
   color: #333;
   font-size: 18px;
-}
-
-.logout-btn {
-  padding: 6px 14px;
-  background: #f3f4f6;
-  color: #606266;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.logout-btn:hover {
-  background: #e5e7eb;
-  color: #409eff;
 }
 
 @media (min-width: 768px) {
@@ -488,5 +485,31 @@ async function sendMessage() {
   margin-top: 16px;
   color: #f56c6c;
   font-size: 14px;
+}
+
+.user-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #f3f4f6;
+  color: #606266;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.user-menu-btn:hover {
+  background: #e5e7eb;
+  color: #409eff;
+  border-color: #c6e2ff;
+}
+
+.username-text {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
