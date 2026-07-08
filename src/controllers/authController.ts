@@ -3,7 +3,6 @@ import { parseBody } from "../utils/bodyParser.js";
 import { sendJSON } from "../utils/response.js";
 import { requireAuth } from "../middleware/auth.js";
 import * as authService from "../services/authService.js";
-import type { JwtPayload } from "../auth.js";
 
 function validateCredentials(body: Record<string, unknown>): { username: string; password: string } {
   const username = typeof body.username === "string" ? body.username.trim() : "";
