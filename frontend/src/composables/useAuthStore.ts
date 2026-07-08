@@ -48,6 +48,10 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
     throw new Error(data.error || `请求失败：${res.status}`)
   }
 
+  if (res.status === 204) {
+    return undefined as T
+  }
+
   return res.json() as Promise<T>
 }
 
