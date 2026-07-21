@@ -38,6 +38,7 @@ export interface ChatMessage {
   content: string
   payload: EventListPayload | null
   timestamp: number
+  isTyping?: boolean
 }
 
 export interface ChatSession {

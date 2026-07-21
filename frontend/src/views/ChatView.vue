@@ -87,7 +87,7 @@ const displayMessages = computed<ChatMessageItem[]>(() =>
       content: m.content,
       payload: m.payload,
       timestamp: m.timestamp,
-      isTyping: false,
+      isTyping: m.isTyping ?? false,
     }))
 )
 
@@ -169,6 +169,7 @@ async function sendMessage() {
     userInput.value = ''
     errorMsg.value = ''
     isTyping.value = true
+    store.setLastMessageTyping(sessionId, true)
 
     nextTick(() => {
       const el = inputRef.value
@@ -274,6 +275,7 @@ async function sendMessage() {
     }
   } finally {
     isTyping.value = false
+    store.setLastMessageTyping(sessionId, false)
     isSending.value = false
     abortController.value = null
   }
@@ -339,7 +341,7 @@ async function sendMessage() {
         <button
           class="send-btn"
           :class="{ 'stop-btn': isTyping }"
-          :disabled="(!isTyping && !userInput.trim()) || isSending"
+          :disabled="!isTyping && (isSending || !userInput.trim())"
           @click="isTyping ? stopGenerating() : sendMessage()"
         >
           {{ isTyping ? '停止' : isSending ? '发送中' : '发送' }}
@@ -450,7 +452,7 @@ async function sendMessage() {
 }
 
 .send-btn {
-  padding: 6px 14px;
+  padding: 0 14px;
   background: #409eff;
   color: white;
   border: none;
@@ -460,8 +462,11 @@ async function sendMessage() {
   transition: background 0.2s;
   height: 28px;
   min-height: 28px;
-  align-self: flex-start;
+  align-self: center;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .send-btn:hover:not(:disabled) {
